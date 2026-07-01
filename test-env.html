@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test ENV Variables</title>
+</head>
+<body>
+    <h1>Test Zmiennych Środowiskowych</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        const envVars = {
+            VITE_MYSQL_HOST: import.meta.env.VITE_MYSQL_HOST,
+            VITE_MYSQL_PORT: import.meta.env.VITE_MYSQL_PORT,
+            VITE_MYSQL_USER: import.meta.env.VITE_MYSQL_USER,
+            VITE_MYSQL_DATABASE: import.meta.env.VITE_MYSQL_DATABASE,
+            VITE_MYSQL_PASSWORD: import.meta.env.VITE_MYSQL_PASSWORD ? '***SET***' : 'NOT SET'
+        };
+
+        document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(envVars, null, 2) + '</pre>';
+        console.log('ENV Variables:', envVars);
+    </script>
+</body>
+</html>

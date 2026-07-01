@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test GPS Tracking</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e293b;
+            color: white;
+        }
+        .box {
+            background: #334155;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 2px solid #475569;
+        }
+        .success { border-color: #22c55e; background: #16453b; }
+        .error { border-color: #ef4444; background: #451616; }
+        pre {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test GPS - Aplikacja Kierowcy</h1>
+
+    <div class="box">
+        <h2>1. Test dostępności GPS</h2>
+        <button onclick="testGPS()">Testuj GPS</button>
+        <div id="gpsTest"></div>
+    </div>
+
+    <div class="box">
+        <h2>2. Symulacja wysyłki do backendu</h2>
+        <p>Wysyła rzeczywistą lokalizację GPS do backendu (tak jak robi aplikacja)</p>
+        <button onclick="sendToBackend()">Wyślij lokalizację do backendu</button>
+        <div id="backendTest"></div>
+    </div>
+
+    <div class="box">
+        <h2>3. Sprawdź co jest w bazie</h2>
+        <button onclick="checkDatabase()">Sprawdź bazę danych</button>
+        <div id="databaseCheck"></div>
+    </div>
+
+    <script>
+        const DRIVER_ID = 'driver_1771149377674'; // ID kierowcy 191
+
+        function testGPS() {
+            const output = document.getElementById('gpsTest');
+            output.innerHTML = '<p>⏳ Pobieranie lokalizacji GPS...</p>';
+
+            if (!navigator.geolocation) {
+                output.innerHTML = '<p class="error">❌ GPS niedostępny w tej przeglądarce</p>';
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const html = `
+                        <div class="success">
+                            <h3>✅ GPS działa!</h3>
+                            <pre>${JSON.stringify({
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude,
+                                accuracy: position.coords.accuracy,
+                                timestamp: new Date(position.timestamp).toISOString()
+                            }, null, 2)}</pre>
+                        </div>
+                    `;
+                    output.innerHTML = html;
+                },
+                (error) => {
+                    const html = `
+                        <div class="error">
+                            <h3>❌ Błąd GPS</h3>
+                            <p>Kod: ${error.code}</p>
+                            <p>Wiadomość: ${error.message}</p>
+                        </div>
+                    `;
+                    output.innerHTML = html;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        async function sendToBackend() {
+            const output = document.getElementById('backendTest');
+            output.innerHTML = '<p>⏳ Wysyłanie do backendu...</p>';
+
+            try {
+                // Pobierz GPS
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000
+                    });
+                });
+
+                const location = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+
+                console.log('[Test] Sending to backend:', location);
+
+                // Wyślij do backendu
+                const response = await fetch(`http://localhost:3001/api/drivers/${DRIVER_ID}/location`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(location)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const html = `
+                        <div class="success">
+                            <h3>✅ Wysłano do backendu!</h3>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    `;
+                    output.innerHTML = html;
+                } else {
+                    const html = `
+                        <div class="error">
+                            <h3>❌ Backend zwrócił błąd</h3>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    `;
+                    output.innerHTML = html;
+                }
+            } catch (error) {
+                const html = `
+                    <div class="error">
+                        <h3>❌ Błąd</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                output.innerHTML = html;
+            }
+        }
+
+        async function checkDatabase() {
+            const output = document.getElementById('databaseCheck');
+            output.innerHTML = '<p>⏳ Sprawdzanie bazy danych...</p>';
+
+            try {
+                const response = await fetch('http://localhost:3001/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sql: 'SELECT driver_code, latitude, longitude, current_zone, last_location_update FROM drivers WHERE driver_code = "191" LIMIT 1'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    const driver = result.data[0];
+                    const lastUpdate = new Date(driver.last_location_update);
+                    const now = new Date();
+                    const ageSeconds = Math.floor((now - lastUpdate) / 1000);
+
+                    const html = `
+                        <div class="${ageSeconds < 60 ? 'success' : 'error'}">
+                            <h3>${ageSeconds < 60 ? '✅' : '⚠️'} Stan bazy danych</h3>
+                            <pre>${JSON.stringify(driver, null, 2)}</pre>
+                            <p><strong>Wiek danych:</strong> ${ageSeconds} sekund temu (${lastUpdate.toLocaleTimeString()})</p>
+                            ${ageSeconds >= 60 ? '<p style="color: #fbbf24;">⚠️ Dane są stare - lokalizacja nie jest aktualizowana!</p>' : '<p style="color: #22c55e;">✅ Dane są świeże!</p>'}
+                        </div>
+                    `;
+                    output.innerHTML = html;
+                } else {
+                    output.innerHTML = '<div class="error"><h3>❌ Nie znaleziono kierowcy w bazie</h3></div>';
+                }
+            } catch (error) {
+                const html = `
+                    <div class="error">
+                        <h3>❌ Błąd połączenia z bazą</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                output.innerHTML = html;
+            }
+        }
+
+        // Auto-test przy załadowaniu
+        window.onload = () => {
+            console.log('Test GPS page loaded');
+            console.log('Driver ID:', DRIVER_ID);
+        };
+    </script>
+</body>
+</html>

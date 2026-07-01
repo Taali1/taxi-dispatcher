@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Driver Location Service</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2 px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <h1>🚕 Diagnostyka - Driver Location Service</h1>
+
+    <div class="section">
+        <h2>1. Konfiguracja DataSource</h2>
+        <div id="dataSourceConfig"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Test API Backendu</h2>
+        <button onclick="testBackendHealth()">Test /health</button>
+        <button onclick="testLocationEndpoint()">Test POST /location</button>
+        <div id="backendTest"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Test Geolokalizacji</h2>
+        <button onclick="testGeolocation()">Pobierz lokalizację GPS</button>
+        <div id="geolocationTest"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Test Zapisu do Bazy</h2>
+        <button onclick="testSaveToDatabase()">Wyślij testową lokalizację</button>
+        <div id="databaseTest"></div>
+    </div>
+
+    <script>
+        // Test 1: Sprawdź konfigurację DataSource
+        function checkDataSourceConfig() {
+            const config = {
+                VITE_MYSQL_HOST: import.meta.env.VITE_MYSQL_HOST || 'NIE USTAWIONE',
+                VITE_MYSQL_PORT: import.meta.env.VITE_MYSQL_PORT || 'NIE USTAWIONE',
+                VITE_MYSQL_USER: import.meta.env.VITE_MYSQL_USER || 'NIE USTAWIONE',
+                VITE_MYSQL_DATABASE: import.meta.env.VITE_MYSQL_DATABASE || 'NIE USTAWIONE',
+                VITE_MYSQL_PASSWORD: import.meta.env.VITE_MYSQL_PASSWORD ? '*** USTAWIONE ***' : 'NIE USTAWIONE'
+            };
+
+            const html = `
+                <pre>${JSON.stringify(config, null, 2)}</pre>
+                <div class="status ${config.VITE_MYSQL_HOST !== 'NIE USTAWIONE' ? 'success' : 'error'}">
+                    Status: ${config.VITE_MYSQL_HOST !== 'NIE USTAWIONE' ? '✅ Konfiguracja MySQL znaleziona' : '❌ Brak konfiguracji MySQL'}
+                </div>
+            `;
+            document.getElementById('dataSourceConfig').innerHTML = html;
+        }
+
+        // Test 2: Test backendu - /health
+        async function testBackendHealth() {
+            const output = document.getElementById('backendTest');
+            output.innerHTML = '<div class="status warning">⏳ Testowanie...</div>';
+
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+
+                output.innerHTML = `
+                    <h3>✅ Backend działa</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <div class="status success">Status: ${data.status}, Database: ${data.database}</div>
+                `;
+            } catch (error) {
+                output.innerHTML = `
+                    <div class="status error">❌ Błąd połączenia z backendem</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+
+        // Test 2b: Test endpointu lokalizacji
+        async function testLocationEndpoint() {
+            const output = document.getElementById('backendTest');
+            output.innerHTML += '<div class="status warning">⏳ Testowanie endpointu lokalizacji...</div>';
+
+            try {
+                const testDriverId = 'driver_1771149377674'; // ID kierowcy 191
+                const testLocation = {
+                    latitude: 52.2297,
+                    longitude: 21.0122
+                };
+
+                const response = await fetch(`http://localhost:3001/api/drivers/${testDriverId}/location`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testLocation)
+                });
+
+                const data = await response.json();
+
+                output.innerHTML += `
+                    <h3>✅ Endpoint działa</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <div class="status success">Lokalizacja zapisana pomyślnie!</div>
+                `;
+            } catch (error) {
+                output.innerHTML += `
+                    <div class="status error">❌ Błąd zapisu lokalizacji</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+
+        // Test 3: Test geolokalizacji
+        function testGeolocation() {
+            const output = document.getElementById('geolocationTest');
+            output.innerHTML = '<div class="status warning">⏳ Pobieranie lokalizacji GPS...</div>';
+
+            if (!navigator.geolocation) {
+                output.innerHTML = '<div class="status error">❌ Geolokalizacja nie jest dostępna w tej przeglądarce</div>';
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const location = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: new Date(position.timestamp).toISOString()
+                    };
+
+                    output.innerHTML = `
+                        <h3>✅ Lokalizacja pobrana</h3>
+                        <pre>${JSON.stringify(location, null, 2)}</pre>
+                        <div class="status success">GPS działa poprawnie!</div>
+                    `;
+                },
+                (error) => {
+                    output.innerHTML = `
+                        <div class="status error">❌ Błąd pobierania lokalizacji</div>
+                        <pre>Kod: ${error.code}, Wiadomość: ${error.message}</pre>
+                    `;
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 5000
+                }
+            );
+        }
+
+        // Test 4: Test zapisu do bazy
+        async function testSaveToDatabase() {
+            const output = document.getElementById('databaseTest');
+            output.innerHTML = '<div class="status warning">⏳ Wysyłanie do bazy...</div>';
+
+            if (!navigator.geolocation) {
+                output.innerHTML = '<div class="status error">❌ Geolokalizacja niedostępna</div>';
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const location = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+
+                    try {
+                        const testDriverId = 'driver_1771149377674'; // ID kierowcy 191
+                        const response = await fetch(`http://localhost:3001/api/drivers/${testDriverId}/location`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(location)
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            output.innerHTML = `
+                                <h3>✅ Lokalizacja zapisana do bazy!</h3>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                                <div class="status success">
+                                    Zapisano: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+                                    <br>Strefa: ${data.data.currentZone || 'Brak strefy'}
+                                </div>
+                            `;
+                        } else {
+                            output.innerHTML = `
+                                <div class="status error">❌ Błąd zapisu</div>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            `;
+                        }
+                    } catch (error) {
+                        output.innerHTML = `
+                            <div class="status error">❌ Błąd połączenia</div>
+                            <pre>${error.message}</pre>
+                        `;
+                    }
+                },
+                (error) => {
+                    output.innerHTML = `
+                        <div class="status error">❌ Błąd GPS</div>
+                        <pre>Kod: ${error.code}, ${error.message}</pre>
+                    `;
+                }
+            );
+        }
+
+        // Uruchom test konfiguracji przy załadowaniu
+        window.onload = () => {
+            checkDataSourceConfig();
+            console.log('Debug page loaded. ENV vars:', {
+                HOST: import.meta.env.VITE_MYSQL_HOST,
+                PORT: import.meta.env.VITE_MYSQL_PORT,
+                USER: import.meta.env.VITE_MYSQL_USER,
+                DATABASE: import.meta.env.VITE_MYSQL_DATABASE
+            });
+        };
+    </script>
+</body>
+</html>

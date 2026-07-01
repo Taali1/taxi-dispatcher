@@ -1,0 +1,9 @@
+{
+  "name": "Panel Kierowcy",
+  "short_name": "Kierowca",
+  "start_url": "/driver",
+  "display": "standalone",
+  "background_color": "#171821",
+  "theme_color": "#171821",
+  "icons": []
+}

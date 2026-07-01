@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply transition-colors duration-200;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+      'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #09090b;
+    color: #fff;
+  }
+
+  body {
+    background-color: #09090b;
+  }
+
+  html[data-theme="dark"] {
+  }
+}
+
+.font-open-sans {
+  font-family: 'Open Sans', sans-serif;
+}
+
+@keyframes order-slide-in {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes order-glow-pulse {
+  0%, 100% { text-shadow: 0 0 12px rgba(245,158,11,0.5), 0 0 30px rgba(245,158,11,0.2); }
+  50%       { text-shadow: 0 0 24px rgba(245,158,11,0.9), 0 0 60px rgba(245,158,11,0.4); }
+}
+@keyframes order-icon-bounce {
+  0%, 100% { transform: scale(1) rotate(-5deg); }
+  50%       { transform: scale(1.18) rotate(5deg); }
+}
+@keyframes order-bg-pulse {
+  0%, 100% { opacity: 0.06; }
+  50%       { opacity: 0.13; }
+}
+
+.animate-order-slide-in  { animation: order-slide-in  0.35s ease both; }
+.animate-order-glow      { animation: order-glow-pulse 1.6s ease-in-out infinite; }
+.animate-order-icon      { animation: order-icon-bounce 0.9s ease-in-out infinite; }
+.animate-order-bg-pulse  { animation: order-bg-pulse 1.6s ease-in-out infinite; }
+
+@keyframes signal-blink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.1);
+  }
+}
+
+.animate-signal-blink {
+  animation: signal-blink 0.6s ease-in-out infinite;
+}
+
+.custom-driver-marker,
+.other-driver-marker,
+.driver-map-marker,
+.address-pin-marker,
+.zone-label-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.bolt-pin-drop {}
